@@ -7,7 +7,7 @@ import {
   UpdateDateColumn,
   JoinColumn,
 } from 'typeorm';
-import { User } from '../users/user.entity';
+import { User } from '../users/users.entity';
 
 export enum TaskStatus {
   TODO = 'todo',
