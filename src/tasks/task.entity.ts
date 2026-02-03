@@ -7,6 +7,7 @@ import {
   UpdateDateColumn,
   JoinColumn,
 } from 'typeorm';
+import { ApiProperty } from '@nestjs/swagger';
 import { User } from '../users/users.entity';
 
 export enum TaskStatus {
@@ -17,15 +18,19 @@ export enum TaskStatus {
 
 @Entity('tasks')
 export class Task {
+  @ApiProperty({ format: 'uuid' })
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @ApiProperty({ example: 'Implement Swagger docs' })
   @Column()
   title: string;
 
+  @ApiProperty({ example: 'Add Swagger decorators and setup' })
   @Column('text')
   description: string;
 
+  @ApiProperty({ enum: TaskStatus, example: TaskStatus.TODO })
   @Column({
     type: 'enum',
     enum: TaskStatus,
@@ -33,12 +38,15 @@ export class Task {
   })
   status: TaskStatus;
 
+  @ApiProperty({ format: 'date', example: '2026-02-10' })
   @Column({ type: 'date' })
   dueDate: Date;
 
+  @ApiProperty({ format: 'date-time' })
   @CreateDateColumn()
   createdAt: Date;
 
+  @ApiProperty({ format: 'date-time' })
   @UpdateDateColumn()
   updatedAt: Date;
 
@@ -48,6 +56,7 @@ export class Task {
   @JoinColumn({ name: 'assigneeId' })
   assignee: User;
 
+  @ApiProperty({ format: 'uuid' })
   @Column()
   assigneeId: string;
 }

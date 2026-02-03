@@ -1,4 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm';
+import { ApiProperty } from '@nestjs/swagger';
 import { Task } from '../tasks/task.entity';
 
 export enum UserRole {
@@ -8,15 +9,19 @@ export enum UserRole {
 
 @Entity('users')
 export class User {
+  @ApiProperty({ format: 'uuid' })
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @ApiProperty({ example: 'jane.doe@example.com' })
+  @Column({ unique: true })
   email: string;
 
+  @ApiProperty({ example: 'jane.doe' })
   @Column()
   name: string;
 
+  @ApiProperty({ enum: UserRole, example: UserRole.MEMBER })
   @Column({
     type: 'enum',
     enum: UserRole,
@@ -24,7 +29,7 @@ export class User {
   })
   role: UserRole;
 
-  // One user has many tasks assigned to them
+  // Relationship: One user has many tasks assigned
   @OneToMany(() => Task, (task) => task.assignee)
   tasks: Task[];
 }
