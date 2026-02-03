@@ -2,12 +2,12 @@ import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 
 export const databaseConfig: TypeOrmModuleOptions = {
   type: 'postgres',
-  host: process.env.DB_HOST || 'localhost',
+  host: process.env.DB_HOST,
   port: parseInt(process.env.DB_PORT ?? '5432'),
-  username: process.env.DB_USERNAME || 'postgres',
-  password: process.env.DB_PASSWORD || 'NewStrongPassword123',
-  database: process.env.DB_NAME || 'team_tasks_db',
+  username: process.env.DB_USERNAME,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
   entities: [__dirname + '/../**/*.entity{.ts,.js}'],
-  synchronize: true, // ⚠️ Auto-creates tables (dev only!)
-  logging: true, // See SQL queries in console
+  synchronize: false, // ✅ PROD SAFE
+  logging: false,     // ✅ PROD SAFE
 };
