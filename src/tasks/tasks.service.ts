@@ -25,25 +25,27 @@ export class TasksService {
     assigneeId?: string,
     search?: string,
   ): Promise<Task[]> {
-    const where: FindOptionsWhere<Task> = {};
+    const query = this.taskRepository.createQueryBuilder('task');
+    query.leftJoinAndSelect('task.assignee', 'assignee');
 
     if (status) {
-      where.status = status;
+      query.andWhere('task.status = :status', { status });
     }
 
     if (assigneeId) {
-      where.assigneeId = assigneeId;
+      query.andWhere('task.assigneeId = :assigneeId', { assigneeId });
     }
 
     if (search) {
-      where.title = Like(`%${search}%`);
+      query.andWhere(
+        '(task.title ILIKE :search OR task.description ILIKE :search)',
+        { search: `%${search}%` },
+      );
     }
 
-    // eager: true in entity automatically loads assignee (prevents N+1 queries)
-    return this.taskRepository.find({
-      where,
-      order: { createdAt: 'DESC' },
-    });
+    query.orderBy('task.createdAt', 'DESC');
+
+    return query.getMany();
   }
 
   async findOne(id: string): Promise<Task> {

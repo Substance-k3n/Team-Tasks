@@ -36,9 +36,9 @@ export class TasksController {
   constructor(private tasksService: TasksService) {}
 
   @Get()
-  @ApiOperation({ summary: 'List tasks' })
-  @ApiQuery({ name: 'status', required: false, enum: TaskStatus })
-  @ApiQuery({ name: 'assigneeId', required: false, description: 'Filter by assignee UUID' })
+  @ApiOperation({ summary: 'List tasks with optional filtering' })
+  @ApiQuery({ name: 'status', required: false, enum: TaskStatus, description: 'Filter by task status' })
+  @ApiQuery({ name: 'assigneeId', required: false, description: 'Filter by assignee UUID', schema: { format: 'uuid' } })
   @ApiQuery({ name: 'search', required: false, description: 'Search in title or description' })
   @ApiOkResponse({ type: Task, isArray: true })
   async findAll(
