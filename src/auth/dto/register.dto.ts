@@ -13,6 +13,11 @@ export class RegisterDto {
   @IsNotEmpty()
   name: string;
 
+  @ApiProperty({ example: 'password123', format: 'password' })
+  @IsString()
+  @IsNotEmpty()
+  password: string;
+
   @ApiProperty({ enum: UserRole, example: UserRole.MEMBER })
   @IsEnum(UserRole)
   @IsNotEmpty()

@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/co
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import * as bcrypt from 'bcrypt';
 import { User, UserRole } from '../users/user.entity';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -15,7 +16,7 @@ export class AuthService {
   ) {}
 
   async register(registerDto: RegisterDto) {
-    const { email, name, role } = registerDto;
+    const { email, name, password, role } = registerDto;
 
     // Check if user already exists
     const existingUser = await this.userRepository.findOne({ where: { email } });
@@ -24,11 +25,13 @@ export class AuthService {
       throw new ConflictException('User with this email already exists');
     }
 
+    const hashedPassword = await bcrypt.hash(password, 10);
+
     // Create new user
     const user = this.userRepository.create({
       email,
       name,
-      username: name,
+      password: hashedPassword,
       role,
     });
 
@@ -54,24 +57,23 @@ export class AuthService {
   }
 
   async login(loginDto: LoginDto) {
-    const { email, role } = loginDto;
+    const { email, password, role } = loginDto;
 
     // Check if user exists
-    let user = await this.userRepository.findOne({ where: { email } });
-
-    // If user doesn't exist, create them (simplified for intern project)
-    if (!user) {
-      user = this.userRepository.create({
-        email,
-        name: email.split('@')[0], // Extract name from email
-        username: email.split('@')[0],
-        role,
-      });
-      await this.userRepository.save(user);
+    const user = await this.userRepository.findOne({ where: { email } });
+    
+    // Explicitly check role if provided
+    if (user && user.role !== role) {
+      throw new UnauthorizedException('Role mismatch');
     }
 
-    // Verify role matches (in real app, this would be password check)
-    if (user.role !== role) {
+    if (!user || !user.password) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    if (!isMatch) {
       throw new UnauthorizedException('Invalid credentials');
     }
 

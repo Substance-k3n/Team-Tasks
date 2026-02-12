@@ -8,7 +8,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
-import { User } from '../users/users.entity';
+import { User } from '../users/user.entity';
 
 export enum TaskStatus {
   TODO = 'todo',

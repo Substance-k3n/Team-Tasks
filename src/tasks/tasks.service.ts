@@ -11,7 +11,7 @@ import {
   UpdateTaskDto,
   UpdateTaskStatusDto,
 } from './dto/task.dto';
-import { User, UserRole } from '../users/users.entity';
+import { User, UserRole } from '../users/user.entity';
 
 @Injectable()
 export class TasksService {
