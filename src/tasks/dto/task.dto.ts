@@ -5,6 +5,8 @@ import {
   IsDateString,
   IsUUID,
   IsOptional,
+  IsArray,
+  ArrayNotEmpty,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { TaskStatus } from '../task.entity';
@@ -25,10 +27,11 @@ export class CreateTaskDto {
   @IsOptional()
   status?: TaskStatus;
 
-  @ApiProperty({ format: 'uuid', example: 'd290f1ee-6c54-4b01-90e6-d701748f0851' })
-  @IsUUID()
-  @IsNotEmpty()
-  assigneeId: string;
+  @ApiPropertyOptional({ type: 'array', items: { type: 'string', format: 'uuid' } })
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsUUID('4', { each: true })
+  assigneeIds: string[];
 
   @ApiProperty({ format: 'date', example: '2026-02-10' })
   @IsDateString()
@@ -52,10 +55,11 @@ export class UpdateTaskDto {
   @IsOptional()
   status?: TaskStatus;
 
-  @ApiPropertyOptional({ format: 'uuid', example: 'd290f1ee-6c54-4b01-90e6-d701748f0851' })
-  @IsUUID()
+  @ApiPropertyOptional({ type: 'array', items: { type: 'string', format: 'uuid' } })
+  @IsArray()
   @IsOptional()
-  assigneeId?: string;
+  @IsUUID('4', { each: true })
+  assigneeIds?: string[];
 
   @ApiPropertyOptional({ format: 'date', example: '2026-03-01' })
   @IsDateString()

@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToMany } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
 import { Task } from '../tasks/task.entity';
 
@@ -34,6 +34,6 @@ export class User {
   })
   role: UserRole;
 
-  @OneToMany(() => Task, (task) => task.assignee)
+  @ManyToMany(() => Task, (task) => task.assignees)
   tasks: Task[];
 }

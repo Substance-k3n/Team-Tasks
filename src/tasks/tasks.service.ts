@@ -22,18 +22,13 @@ export class TasksService {
 
   async findAll(
     status?: TaskStatus,
-    assigneeId?: string,
     search?: string,
   ): Promise<Task[]> {
     const query = this.taskRepository.createQueryBuilder('task');
-    query.leftJoinAndSelect('task.assignee', 'assignee');
+    query.leftJoinAndSelect('task.assignees', 'assignees');
 
     if (status) {
       query.andWhere('task.status = :status', { status });
-    }
-
-    if (assigneeId) {
-      query.andWhere('task.assigneeId = :assigneeId', { assigneeId });
     }
 
     if (search) {
@@ -59,7 +54,13 @@ export class TasksService {
   }
 
   async create(createTaskDto: CreateTaskDto): Promise<Task> {
-    const task = this.taskRepository.create(createTaskDto);
+    const task = this.taskRepository.create({
+      ...createTaskDto,
+      assignees: (createTaskDto as any).assigneeIds
+        ? (createTaskDto as any).assigneeIds.map((id: string) => ({ id } as User))
+        : [],
+    });
+
     return this.taskRepository.save(task);
   }
 
@@ -75,6 +76,12 @@ export class TasksService {
       if (Object.keys(updateTaskDto).length > 1 || !updateTaskDto.status) {
         throw new ForbiddenException('Members can only update task status');
       }
+    }
+
+    if ((updateTaskDto as any).assigneeIds) {
+      task.assignees = (updateTaskDto as any).assigneeIds.map((id: string) => ({ id } as User));
+      // Remove the field so Object.assign doesn't overwrite relations incorrectly
+      delete (updateTaskDto as any).assigneeIds;
     }
 
     Object.assign(task, updateTaskDto);

@@ -2,10 +2,10 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
-  ManyToOne,
+  ManyToMany,
   CreateDateColumn,
   UpdateDateColumn,
-  JoinColumn,
+  JoinTable,
 } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
 import { User } from '../users/user.entity';
@@ -50,13 +50,13 @@ export class Task {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  // Relationship: Many tasks belong to one user (assignee)
-  // eager: true prevents N+1 queries by automatically loading assignee
-  @ManyToOne(() => User, (user) => user.tasks, { eager: true })
-  @JoinColumn({ name: 'assigneeId' })
-  assignee: User;
-
-  @ApiProperty({ format: 'uuid' })
-  @Column()
-  assigneeId: string;
+  // Relationship: Many tasks can have many assignees (users)
+  // eager: true prevents N+1 queries by automatically loading assignees
+  @ManyToMany(() => User, (user) => user.tasks, { eager: true })
+  @JoinTable({
+    name: 'task_assignees',
+    joinColumn: { name: 'taskId', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'userId', referencedColumnName: 'id' },
+  })
+  assignees: User[];
 }
