@@ -18,6 +18,24 @@ export class AuthController {
   @Post('register')
   @ApiOperation({ summary: 'Register a new user' })
   @ApiBody({ type: RegisterDto })
+  @ApiOkResponse({
+    description: 'User registered successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        access_token: { type: 'string', example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' },
+        user: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+            email: { type: 'string', example: 'john.doe@example.com' },
+            name: { type: 'string', example: 'John Doe' },
+            role: { type: 'string', example: 'member' },
+          },
+        },
+      },
+    },
+  })
   async register(@Body() registerDto: RegisterDto) {
     return this.authService.register(registerDto);
   }

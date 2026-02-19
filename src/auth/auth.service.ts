@@ -16,7 +16,7 @@ export class AuthService {
   ) {}
 
   async register(registerDto: RegisterDto) {
-    const { email, name, password, role } = registerDto;
+    const { email, name, password } = registerDto;
 
     // Check if user already exists
     const existingUser = await this.userRepository.findOne({ where: { email } });
@@ -32,7 +32,7 @@ export class AuthService {
       email,
       name,
       password: hashedPassword,
-      role,
+      role: UserRole.MEMBER,
     });
 
     await this.userRepository.save(user);
@@ -57,16 +57,11 @@ export class AuthService {
   }
 
   async login(loginDto: LoginDto) {
-    const { email, password, role } = loginDto;
+    const { email, password } = loginDto;
 
     // Check if user exists
     const user = await this.userRepository.findOne({ where: { email } });
     
-    // Explicitly check role if provided
-    if (user && user.role !== role) {
-      throw new UnauthorizedException('Role mismatch');
-    }
-
     if (!user || !user.password) {
       throw new UnauthorizedException('Invalid credentials');
     }
