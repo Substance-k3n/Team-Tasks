@@ -31,7 +31,13 @@ export class CreateTaskDto {
   @IsArray()
   @ArrayNotEmpty()
   @IsUUID('4', { each: true })
-  assigneeIds: string[];
+  @IsOptional()
+  assigneeIds?: string[];
+
+  @ApiPropertyOptional({ format: 'uuid', description: 'Single assignee id (alias for assigneeIds)' })
+  @IsUUID('4')
+  @IsOptional()
+  assigneeId?: string;
 
   @ApiProperty({ format: 'date', example: '2026-02-10' })
   @IsDateString()
@@ -60,6 +66,11 @@ export class UpdateTaskDto {
   @IsOptional()
   @IsUUID('4', { each: true })
   assigneeIds?: string[];
+
+  @ApiPropertyOptional({ format: 'uuid', description: 'Single assignee id (alias for assigneeIds)' })
+  @IsUUID('4')
+  @IsOptional()
+  assigneeId?: string;
 
   @ApiPropertyOptional({ format: 'date', example: '2026-03-01' })
   @IsDateString()

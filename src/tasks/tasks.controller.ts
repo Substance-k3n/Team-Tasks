@@ -22,6 +22,7 @@ import {
 } from '@nestjs/swagger';
 import { TasksService } from './tasks.service';
 import { CreateTaskDto, UpdateTaskDto, UpdateTaskStatusDto } from './dto/task.dto';
+import { TaskWithAssigneeIdsDto, TaskWithAssigneesDto } from './dto/task-response.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -39,19 +40,21 @@ export class TasksController {
   @Get()
   @ApiOperation({ summary: 'List tasks with optional filtering' })
   @ApiQuery({ name: 'status', required: false, enum: TaskStatus, description: 'Filter by task status' })
+  @ApiQuery({ name: 'assigneeId', required: false, description: 'Filter by assignee id' })
   @ApiQuery({ name: 'search', required: false, description: 'Search in title or description' })
-  @ApiOkResponse({ type: Task, isArray: true })
+  @ApiOkResponse({ type: TaskWithAssigneesDto, isArray: true })
   async findAll(
     @Query('status') status?: TaskStatus,
+    @Query('assigneeId') assigneeId?: string,
     @Query('search') search?: string,
   ) {
-    return this.tasksService.findAll(status, search);
+    return this.tasksService.findAll(status, assigneeId, search);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get task by id' })
   @ApiParam({ name: 'id', description: 'Task UUID' })
-  @ApiOkResponse({ type: Task })
+  @ApiOkResponse({ type: TaskWithAssigneesDto })
   async findOne(@Param('id') id: string) {
     return this.tasksService.findOne(id);
   }
@@ -70,7 +73,7 @@ export class TasksController {
   @ApiOperation({ summary: 'Update task' })
   @ApiParam({ name: 'id', description: 'Task UUID' })
   @ApiBody({ type: UpdateTaskDto })
-  @ApiOkResponse({ type: Task })
+  @ApiOkResponse({ type: TaskWithAssigneeIdsDto })
   async update(
     @Param('id') id: string,
     @Body() updateTaskDto: UpdateTaskDto,
@@ -83,7 +86,7 @@ export class TasksController {
   @ApiOperation({ summary: 'Update task status (members allowed)' })
   @ApiParam({ name: 'id', description: 'Task UUID' })
   @ApiBody({ type: UpdateTaskStatusDto })
-  @ApiOkResponse({ type: Task })
+  @ApiOkResponse({ type: TaskWithAssigneeIdsDto })
   async updateStatus(
     @Param('id') id: string,
     @Body() updateTaskStatusDto: UpdateTaskStatusDto,

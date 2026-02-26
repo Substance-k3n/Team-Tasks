@@ -22,6 +22,7 @@ export class TasksService {
 
   async findAll(
     status?: TaskStatus,
+    assigneeId?: string,
     search?: string,
   ): Promise<Task[]> {
     const query = this.taskRepository.createQueryBuilder('task');
@@ -38,13 +39,20 @@ export class TasksService {
       );
     }
 
+    if (assigneeId) {
+      query.andWhere('assignees.id = :assigneeId', { assigneeId });
+    }
+
     query.orderBy('task.createdAt', 'DESC');
 
     return query.getMany();
   }
 
   async findOne(id: string): Promise<Task> {
-    const task = await this.taskRepository.findOne({ where: { id } });
+    const task = await this.taskRepository.findOne({
+      where: { id },
+      relations: { assignees: true },
+    });
 
     if (!task) {
       throw new NotFoundException(`Task with ID ${id} not found`);
@@ -54,10 +62,12 @@ export class TasksService {
   }
 
   async create(createTaskDto: CreateTaskDto): Promise<Task> {
+    const assigneeIds = createTaskDto.assigneeIds ??
+      (createTaskDto.assigneeId ? [createTaskDto.assigneeId] : undefined);
     const task = this.taskRepository.create({
       ...createTaskDto,
-      assignees: (createTaskDto as any).assigneeIds
-        ? (createTaskDto as any).assigneeIds.map((id: string) => ({ id } as User))
+      assignees: assigneeIds
+        ? assigneeIds.map((id: string) => ({ id } as User))
         : [],
     });
 
@@ -84,8 +94,15 @@ export class TasksService {
       delete (updateTaskDto as any).assigneeIds;
     }
 
+    if ((updateTaskDto as any).assigneeId) {
+      task.assignees = [{ id: (updateTaskDto as any).assigneeId } as User];
+      delete (updateTaskDto as any).assigneeId;
+    }
+
     Object.assign(task, updateTaskDto);
-    return this.taskRepository.save(task);
+    const saved = await this.taskRepository.save(task);
+
+    return this.toTaskWithAssigneeIds(saved);
   }
 
   async updateStatus(
@@ -94,11 +111,20 @@ export class TasksService {
   ): Promise<Task> {
     const task = await this.findOne(id);
     task.status = updateTaskStatusDto.status;
-    return this.taskRepository.save(task);
+    const saved = await this.taskRepository.save(task);
+
+    return this.toTaskWithAssigneeIds(saved);
   }
 
   async delete(id: string): Promise<void> {
     const task = await this.findOne(id);
     await this.taskRepository.remove(task);
+  }
+
+  private toTaskWithAssigneeIds(task: Task): Task {
+    return {
+      ...task,
+      assignees: task.assignees?.map((assignee) => ({ id: assignee.id } as User)) ?? [],
+    };
   }
 }
