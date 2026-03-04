@@ -4,7 +4,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like, FindOptionsWhere } from 'typeorm';
+import { Repository, Like, FindOptionsWhere, In } from 'typeorm';
 import { Task, TaskStatus } from './task.entity';
 import {
   CreateTaskDto,
@@ -18,6 +18,8 @@ export class TasksService {
   constructor(
     @InjectRepository(Task)
     private taskRepository: Repository<Task>,
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
   ) {}
 
   async findAll(
@@ -62,13 +64,22 @@ export class TasksService {
   }
 
   async create(createTaskDto: CreateTaskDto): Promise<Task> {
-    const assigneeIds = createTaskDto.assigneeIds ??
-      (createTaskDto.assigneeId ? [createTaskDto.assigneeId] : undefined);
+    const { assigneeIds, assigneeId, ...taskData } = createTaskDto;
+    
+    const ids = assigneeIds ?? (assigneeId ? [assigneeId] : []);
+    
+    let assignees: User[] = [];
+    if (ids.length > 0) {
+      assignees = await this.userRepository.findBy({ id: In(ids) });
+      
+      if (assignees.length !== ids.length) {
+        throw new NotFoundException('One or more assignees not found');
+      }
+    }
+
     const task = this.taskRepository.create({
-      ...createTaskDto,
-      assignees: assigneeIds
-        ? assigneeIds.map((id: string) => ({ id } as User))
-        : [],
+      ...taskData,
+      assignees,
     });
 
     return this.taskRepository.save(task);
