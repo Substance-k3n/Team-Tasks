@@ -32,7 +32,7 @@ export class AuthService {
       email,
       name,
       password: hashedPassword,
-      role: UserRole.MEMBER,
+      role: UserRole.ADMIN,
     });
 
     await this.userRepository.save(user);

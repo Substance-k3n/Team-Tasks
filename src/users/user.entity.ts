@@ -25,7 +25,7 @@ export class User {
   @Column({ nullable: true })
   password: string;
 
-  @ApiProperty({ enum: UserRole, example: UserRole.MEMBER })
+  @ApiProperty({ enum: UserRole, example: UserRole.ADMIN })
   @Column({
     type: 'enum',
     enum: UserRole,
