@@ -16,6 +16,10 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
             queue: configService.get<string>('RMQ_MAIN_QUEUE') || 'team_tasks.main',
             queueOptions: {
               durable: true,
+              arguments: {
+                'x-dead-letter-exchange': configService.get<string>('RMQ_DLX') || 'team_tasks.dlx',
+                'x-dead-letter-routing-key': 'task.failed',
+              },
             },
           },
         }),

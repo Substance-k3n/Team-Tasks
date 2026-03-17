@@ -19,6 +19,10 @@ async function bootstrap() {
       noAck: false,
       queueOptions: {
         durable: true,
+        arguments: {
+          'x-dead-letter-exchange': process.env.RMQ_DLX || 'team_tasks.dlx',
+          'x-dead-letter-routing-key': 'task.failed',
+        },
       },
     },
   });
