@@ -4,7 +4,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like, FindOptionsWhere, In } from 'typeorm';
+import { DataSource, Repository, In } from 'typeorm';
 import { Task, TaskStatus } from './task.entity';
 import {
   CreateTaskDto,
@@ -16,6 +16,7 @@ import { User, UserRole } from '../users/user.entity';
 @Injectable()
 export class TasksService {
   constructor(
+    private dataSource: DataSource,
     @InjectRepository(Task)
     private taskRepository: Repository<Task>,
     @InjectRepository(User)
@@ -65,24 +66,26 @@ export class TasksService {
 
   async create(createTaskDto: CreateTaskDto): Promise<Task> {
     const { assigneeIds, assigneeId, ...taskData } = createTaskDto;
-    
     const ids = assigneeIds ?? (assigneeId ? [assigneeId] : []);
-    
-    let assignees: User[] = [];
-    if (ids.length > 0) {
-      assignees = await this.userRepository.findBy({ id: In(ids) });
-      
-      if (assignees.length !== ids.length) {
-        throw new NotFoundException('One or more assignees not found');
+
+    return this.dataSource.transaction(async (manager) => {
+      let assignees: User[] = [];
+
+      if (ids.length > 0) {
+        assignees = await manager.getRepository(User).findBy({ id: In(ids) });
+
+        if (assignees.length !== ids.length) {
+          throw new NotFoundException('One or more assignees not found');
+        }
       }
-    }
 
-    const task = this.taskRepository.create({
-      ...taskData,
-      assignees,
+      const task = manager.getRepository(Task).create({
+        ...taskData,
+        assignees,
+      });
+
+      return manager.getRepository(Task).save(task);
     });
-
-    return this.taskRepository.save(task);
   }
 
   async update(
