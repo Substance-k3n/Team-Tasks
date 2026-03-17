@@ -4,6 +4,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
 import { TasksModule } from './tasks/tasks.module';
 import { UsersModule } from './users/users.module';
+import { GatewayModule } from './gateway/gateway.module';
 
 @Module({
   imports: [
@@ -23,7 +24,7 @@ import { UsersModule } from './users/users.module';
         password: configService.get<string>('DB_PASSWORD'),
         database: configService.get<string>('DB_NAME'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: true, // Set to true for development
+        synchronize: configService.get<string>('NODE_ENV') !== 'production',
         logging: true,
         ssl: configService.get<string>('DATABASE_URL') ? { rejectUnauthorized: false } : false,
       }),
@@ -31,6 +32,7 @@ import { UsersModule } from './users/users.module';
     AuthModule,
     TasksModule,
     UsersModule,
+    GatewayModule,
   ],
 })
 export class AppModule {}

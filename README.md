@@ -24,6 +24,9 @@ This project follows the **Node.js Backend Architecture Guidelines** with:
 - ✅ Input validation
 - ✅ Error handling
 - ✅ Database seeding
+- ✅ RabbitMQ messaging topology (exchange, queue, DLQ)
+- ✅ Producer/consumer flow for task events
+- ✅ Gateway-style RMQ request/response endpoint (`/gateway/tasks`)
 
 ## 🛠️ Tech Stack
 
@@ -34,6 +37,24 @@ This project follows the **Node.js Backend Architecture Guidelines** with:
 - **ORM**: TypeORM
 - **Authentication**: JWT (passport-jwt)
 - **Validation**: class-validator
+- **Messaging**: RabbitMQ (NestJS RMQ transport)
+- **Containers**: Docker + docker-compose
+
+## 🧩 Messaging Topology
+
+- Main exchange: `team_tasks.exchange`
+- Dead-letter exchange: `team_tasks.dlx`
+- Main queue: `team_tasks.main`
+- Dead-letter queue: `team_tasks.dlq`
+- Routing keys: `task.#` (main), `task.failed` (DLQ)
+
+The topology is asserted on startup in `src/messaging/rmq.setup.ts`.
+
+## 🚪 Gateway Pattern
+
+- `GET /gateway/tasks` sends a broker request (`get_tasks`) instead of direct service call.
+- Tasks message consumer responds to `get_tasks` and manually acks messages.
+- Task creation emits `task_created` events for asynchronous consumers.
 
 ## 📂 Project Structure
 
@@ -132,6 +153,9 @@ npm run start:dev
 # Production mode
 npm run build
 npm run start:prod
+
+# Or run full stack (API + RabbitMQ + Postgres + Redis)
+npm run docker:up
 ```
 
 The server will start on `http://localhost:3000`

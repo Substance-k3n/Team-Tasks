@@ -1,9 +1,12 @@
 import {
+  Inject,
   Injectable,
   NotFoundException,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { ClientProxy } from '@nestjs/microservices';
 import { DataSource, Repository, In } from 'typeorm';
 import { Task, TaskStatus } from './task.entity';
 import {
@@ -15,7 +18,11 @@ import { User, UserRole } from '../users/user.entity';
 
 @Injectable()
 export class TasksService {
+  private readonly logger = new Logger(TasksService.name);
+
   constructor(
+    @Inject('TASKS_RMQ_CLIENT')
+    private readonly rmqClient: ClientProxy,
     private dataSource: DataSource,
     @InjectRepository(Task)
     private taskRepository: Repository<Task>,
@@ -68,7 +75,7 @@ export class TasksService {
     const { assigneeIds, assigneeId, ...taskData } = createTaskDto;
     const ids = assigneeIds ?? (assigneeId ? [assigneeId] : []);
 
-    return this.dataSource.transaction(async (manager) => {
+    const task = await this.dataSource.transaction(async (manager) => {
       let assignees: User[] = [];
 
       if (ids.length > 0) {
@@ -86,6 +93,25 @@ export class TasksService {
 
       return manager.getRepository(Task).save(task);
     });
+
+    this.rmqClient
+      .emit('task_created', {
+        taskId: task.id,
+        title: task.title,
+        status: task.status,
+        createdAt: task.createdAt,
+      })
+      .subscribe({
+        error: (error: unknown) => {
+          this.logger.error(
+            `Failed to publish task_created event: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
+        },
+      });
+
+    return task;
   }
 
   async update(

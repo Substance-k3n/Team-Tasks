@@ -1,11 +1,27 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
+import { setupRabbitMqTopology } from './messaging/rmq.setup';
 
 async function bootstrap() {
+  await setupRabbitMqTopology();
+
   const app = await NestFactory.create(AppModule);
+
+  app.connectMicroservice<MicroserviceOptions>({
+    transport: Transport.RMQ,
+    options: {
+      urls: [process.env.RMQ_URL || 'amqp://localhost:5672'],
+      queue: process.env.RMQ_MAIN_QUEUE || 'team_tasks.main',
+      noAck: false,
+      queueOptions: {
+        durable: true,
+      },
+    },
+  });
 
   app.use(helmet());
 
@@ -31,6 +47,7 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('docs', app, document);
 
+  await app.startAllMicroservices();
   await app.listen(3000);
   console.log('🚀 Server running on http://localhost:3000');
   console.log('📚 Swagger docs on http://localhost:3000/docs');
