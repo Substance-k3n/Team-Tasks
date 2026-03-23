@@ -4,6 +4,7 @@ import { DataSource, Repository } from 'typeorm';
 import { Task, TaskStatus } from './task.entity';
 import { TasksService } from './tasks.service';
 import { User, UserRole } from '../users/user.entity';
+import { NotificationsQueueService } from '../notifications/notifications.queue.service';
 
 describe('TasksService', () => {
   let service: TasksService;
@@ -31,6 +32,10 @@ describe('TasksService', () => {
 
   const userRepository = {} as Repository<User>;
 
+  const notificationsQueueService = {
+    enqueueTaskAssigned: jest.fn(),
+  };
+
   beforeEach(() => {
     service = new TasksService(
       rmqClient as any,
@@ -38,6 +43,7 @@ describe('TasksService', () => {
       dataSource,
       taskRepository,
       userRepository,
+      notificationsQueueService as unknown as NotificationsQueueService,
     );
 
     jest.clearAllMocks();
@@ -58,6 +64,37 @@ describe('TasksService', () => {
 
     expect(result).toEqual(cachedTasks);
     expect(taskRepository.createQueryBuilder).not.toHaveBeenCalled();
+  });
+
+  it('enqueues assignment notification when creating an assigned task', async () => {
+    const createdTask = {
+      id: 'task-10',
+      title: 'Queue notification test',
+      description: 'Ensure assignment job is queued',
+      status: TaskStatus.TODO,
+      createdAt: new Date('2026-03-23T12:00:00.000Z'),
+      assignees: [{ id: 'user-1' }, { id: 'user-2' }],
+    } as unknown as Task;
+
+    (dataSource.transaction as jest.Mock).mockResolvedValue(createdTask);
+    cacheManager.clear.mockResolvedValue(true);
+    notificationsQueueService.enqueueTaskAssigned.mockResolvedValue(undefined);
+
+    const result = await service.create({
+      title: 'Queue notification test',
+      description: 'Ensure assignment job is queued',
+      dueDate: '2026-03-24',
+      assigneeIds: ['user-1', 'user-2'],
+    });
+
+    expect(result.id).toBe('task-10');
+    expect(notificationsQueueService.enqueueTaskAssigned).toHaveBeenCalledWith({
+      taskId: 'task-10',
+      title: 'Queue notification test',
+      assigneeIds: ['user-1', 'user-2'],
+      source: 'create',
+    });
+    expect(cacheManager.clear).toHaveBeenCalled();
   });
 
   it('prevents members from updating fields other than status', async () => {

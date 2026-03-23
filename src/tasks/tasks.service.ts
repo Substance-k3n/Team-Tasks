@@ -4,6 +4,7 @@ import {
   NotFoundException,
   ForbiddenException,
   Logger,
+  Optional,
 } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -17,6 +18,7 @@ import {
   UpdateTaskStatusDto,
 } from './dto/task.dto';
 import { User, UserRole } from '../users/user.entity';
+import { NotificationsQueueService } from '../notifications/notifications.queue.service';
 
 @Injectable()
 export class TasksService {
@@ -33,6 +35,8 @@ export class TasksService {
     private taskRepository: Repository<Task>,
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    @Optional()
+    private readonly notificationsQueueService?: NotificationsQueueService,
   ) {}
 
   async findAll(
@@ -126,6 +130,7 @@ export class TasksService {
         },
       });
 
+    await this.enqueueAssignmentNotification(task, 'create');
     await this.invalidateTasksListCache();
 
     return task;
@@ -137,6 +142,7 @@ export class TasksService {
     user: User,
   ): Promise<Task> {
     const task = await this.findOne(id);
+    let assignmentChanged = false;
 
     // Members can only update status
     if (user.role === UserRole.MEMBER) {
@@ -147,17 +153,24 @@ export class TasksService {
 
     if ((updateTaskDto as any).assigneeIds) {
       task.assignees = (updateTaskDto as any).assigneeIds.map((id: string) => ({ id } as User));
+      assignmentChanged = true;
       // Remove the field so Object.assign doesn't overwrite relations incorrectly
       delete (updateTaskDto as any).assigneeIds;
     }
 
     if ((updateTaskDto as any).assigneeId) {
       task.assignees = [{ id: (updateTaskDto as any).assigneeId } as User];
+      assignmentChanged = true;
       delete (updateTaskDto as any).assigneeId;
     }
 
     Object.assign(task, updateTaskDto);
     const saved = await this.taskRepository.save(task);
+
+    if (assignmentChanged) {
+      await this.enqueueAssignmentNotification(saved, 'update');
+    }
+
     await this.invalidateTasksListCache();
 
     return this.toTaskWithAssigneeIds(saved);
@@ -195,6 +208,30 @@ export class TasksService {
     } catch (error) {
       this.logger.warn(
         `Failed to clear tasks cache: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  }
+
+  private async enqueueAssignmentNotification(
+    task: Task,
+    source: 'create' | 'update',
+  ): Promise<void> {
+    if (!this.notificationsQueueService || !task.assignees?.length) {
+      return;
+    }
+
+    try {
+      await this.notificationsQueueService.enqueueTaskAssigned({
+        taskId: task.id,
+        title: task.title,
+        assigneeIds: task.assignees.map((assignee) => assignee.id),
+        source,
+      });
+    } catch (error) {
+      this.logger.warn(
+        `Failed to enqueue task assignment notification: ${
           error instanceof Error ? error.message : String(error)
         }`,
       );
