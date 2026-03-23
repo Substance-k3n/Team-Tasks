@@ -12,6 +12,12 @@ describe('TasksService', () => {
     emit: jest.fn().mockReturnValue(of(undefined)),
   };
 
+  const cacheManager = {
+    get: jest.fn(),
+    set: jest.fn(),
+    clear: jest.fn(),
+  };
+
   const dataSource = {
     transaction: jest.fn(),
   } as unknown as DataSource;
@@ -28,6 +34,7 @@ describe('TasksService', () => {
   beforeEach(() => {
     service = new TasksService(
       rmqClient as any,
+      cacheManager as any,
       dataSource,
       taskRepository,
       userRepository,
@@ -37,9 +44,20 @@ describe('TasksService', () => {
   });
 
   it('throws NotFoundException when task does not exist', async () => {
+    cacheManager.get.mockResolvedValue(undefined);
     (taskRepository.findOne as jest.Mock).mockResolvedValue(null);
 
     await expect(service.findOne('missing-task')).rejects.toThrow(NotFoundException);
+  });
+
+  it('returns cached tasks list when available', async () => {
+    const cachedTasks = [{ id: 'task-cached' }] as Task[];
+    cacheManager.get.mockResolvedValue(cachedTasks);
+
+    const result = await service.findAll(TaskStatus.TODO, 'user-1', 'docs');
+
+    expect(result).toEqual(cachedTasks);
+    expect(taskRepository.createQueryBuilder).not.toHaveBeenCalled();
   });
 
   it('prevents members from updating fields other than status', async () => {
@@ -69,6 +87,9 @@ describe('TasksService', () => {
   });
 
   it('updates status and returns task with assignee id projection', async () => {
+    cacheManager.get.mockResolvedValue(undefined);
+    cacheManager.clear.mockResolvedValue(true);
+
     const existingTask = {
       id: 'task-2',
       title: 'Build tests',
@@ -92,11 +113,15 @@ describe('TasksService', () => {
     });
 
     expect(taskRepository.save).toHaveBeenCalled();
+    expect(cacheManager.clear).toHaveBeenCalled();
     expect(result.status).toBe(TaskStatus.DONE);
     expect(result.assignees).toEqual([{ id: 'user-22' }]);
   });
 
   it('deletes an existing task', async () => {
+    cacheManager.get.mockResolvedValue(undefined);
+    cacheManager.clear.mockResolvedValue(true);
+
     const existingTask = {
       id: 'task-3',
       title: 'Cleanup',
@@ -111,5 +136,6 @@ describe('TasksService', () => {
     await service.delete('task-3');
 
     expect(taskRepository.remove).toHaveBeenCalledWith(existingTask);
+    expect(cacheManager.clear).toHaveBeenCalled();
   });
 });
