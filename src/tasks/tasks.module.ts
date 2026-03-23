@@ -6,9 +6,17 @@ import { TasksService } from './tasks.service';
 import { TasksController } from './tasks.controller';
 import { TasksMessagesController } from './tasks.messages.controller';
 import { RmqClientModule } from '../messaging/rmq.client.module';
+import { NotificationsModule } from '../notifications/notifications.module';
+
+const isJestRuntime =
+  process.env.NODE_ENV === 'test' || !!process.env.JEST_WORKER_ID;
 
 @Module({
-	imports: [TypeOrmModule.forFeature([Task, User]), RmqClientModule],
+	imports: [
+		TypeOrmModule.forFeature([Task, User]),
+		RmqClientModule,
+		...(!isJestRuntime ? [NotificationsModule] : []),
+	],
 	controllers: [TasksController, TasksMessagesController],
 	providers: [TasksService],
 	exports: [TasksService],

@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { BullModule } from '@nestjs/bullmq';
 import { CacheModule } from '@nestjs/cache-manager';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -7,6 +8,23 @@ import { AuthModule } from './auth/auth.module';
 import { TasksModule } from './tasks/tasks.module';
 import { UsersModule } from './users/users.module';
 import { GatewayModule } from './gateway/gateway.module';
+import { NotificationsModule } from './notifications/notifications.module';
+
+const isJestRuntime =
+  process.env.NODE_ENV === 'test' || !!process.env.JEST_WORKER_ID;
+
+function getBullConnection(redisUrl?: string) {
+  const parsedUrl = new URL(redisUrl || 'redis://localhost:6379');
+  const dbPath = parsedUrl.pathname.replace('/', '');
+
+  return {
+    host: parsedUrl.hostname,
+    port: Number(parsedUrl.port || '6379'),
+    username: parsedUrl.username || undefined,
+    password: parsedUrl.password || undefined,
+    db: dbPath ? Number(dbPath) || 0 : 0,
+  };
+}
 
 @Module({
   imports: [
@@ -38,6 +56,19 @@ import { GatewayModule } from './gateway/gateway.module';
         };
       },
     }),
+    ...(!isJestRuntime
+      ? [
+          BullModule.forRootAsync({
+            imports: [ConfigModule],
+            inject: [ConfigService],
+            useFactory: (configService: ConfigService) => ({
+              connection: getBullConnection(
+                configService.get<string>('REDIS_URL'),
+              ),
+            }),
+          }),
+        ]
+      : []),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -59,6 +90,7 @@ import { GatewayModule } from './gateway/gateway.module';
     TasksModule,
     UsersModule,
     GatewayModule,
+    ...(!isJestRuntime ? [NotificationsModule] : []),
   ],
 })
 export class AppModule {}
