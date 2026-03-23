@@ -5,8 +5,10 @@ import {
   ForbiddenException,
   Logger,
 } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ClientProxy } from '@nestjs/microservices';
+import { Cache } from 'cache-manager';
 import { DataSource, Repository, In } from 'typeorm';
 import { Task, TaskStatus } from './task.entity';
 import {
@@ -19,10 +21,13 @@ import { User, UserRole } from '../users/user.entity';
 @Injectable()
 export class TasksService {
   private readonly logger = new Logger(TasksService.name);
+  private readonly tasksListCacheTtlMs = 60_000;
 
   constructor(
     @Inject('TASKS_RMQ_CLIENT')
     private readonly rmqClient: ClientProxy,
+    @Inject(CACHE_MANAGER)
+    private readonly cacheManager: Cache,
     private dataSource: DataSource,
     @InjectRepository(Task)
     private taskRepository: Repository<Task>,
@@ -35,6 +40,13 @@ export class TasksService {
     assigneeId?: string,
     search?: string,
   ): Promise<Task[]> {
+    const cacheKey = this.getTasksListCacheKey(status, assigneeId, search);
+    const cached = await this.cacheManager.get<Task[]>(cacheKey);
+
+    if (cached) {
+      return cached;
+    }
+
     const query = this.taskRepository.createQueryBuilder('task');
     query.leftJoinAndSelect('task.assignees', 'assignees');
 
@@ -55,7 +67,10 @@ export class TasksService {
 
     query.orderBy('task.createdAt', 'DESC');
 
-    return query.getMany();
+    const tasks = await query.getMany();
+    await this.cacheManager.set(cacheKey, tasks, this.tasksListCacheTtlMs);
+
+    return tasks;
   }
 
   async findOne(id: string): Promise<Task> {
@@ -111,6 +126,8 @@ export class TasksService {
         },
       });
 
+    await this.invalidateTasksListCache();
+
     return task;
   }
 
@@ -141,6 +158,7 @@ export class TasksService {
 
     Object.assign(task, updateTaskDto);
     const saved = await this.taskRepository.save(task);
+    await this.invalidateTasksListCache();
 
     return this.toTaskWithAssigneeIds(saved);
   }
@@ -152,6 +170,7 @@ export class TasksService {
     const task = await this.findOne(id);
     task.status = updateTaskStatusDto.status;
     const saved = await this.taskRepository.save(task);
+    await this.invalidateTasksListCache();
 
     return this.toTaskWithAssigneeIds(saved);
   }
@@ -159,6 +178,27 @@ export class TasksService {
   async delete(id: string): Promise<void> {
     const task = await this.findOne(id);
     await this.taskRepository.remove(task);
+    await this.invalidateTasksListCache();
+  }
+
+  private getTasksListCacheKey(
+    status?: TaskStatus,
+    assigneeId?: string,
+    search?: string,
+  ): string {
+    return `tasks:list:${status ?? 'all'}:${assigneeId ?? 'all'}:${encodeURIComponent(search ?? 'all')}`;
+  }
+
+  private async invalidateTasksListCache(): Promise<void> {
+    try {
+      await this.cacheManager.clear();
+    } catch (error) {
+      this.logger.warn(
+        `Failed to clear tasks cache: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
   }
 
   private toTaskWithAssigneeIds(task: Task): Task {
