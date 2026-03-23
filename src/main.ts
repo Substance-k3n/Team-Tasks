@@ -2,9 +2,11 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
+import { join } from 'path';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { INTERNAL_GRPC_PACKAGE } from './grpc/grpc.constants';
 import { setupRabbitMqTopology } from './messaging/rmq.setup';
 
 async function bootstrap() {
@@ -25,6 +27,15 @@ async function bootstrap() {
           'x-dead-letter-routing-key': 'task.failed',
         },
       },
+    },
+  });
+
+  app.connectMicroservice<MicroserviceOptions>({
+    transport: Transport.GRPC,
+    options: {
+      package: INTERNAL_GRPC_PACKAGE,
+      protoPath: join(process.cwd(), 'src/grpc/internal.proto'),
+      url: process.env.INTERNAL_GRPC_URL || '0.0.0.0:50051',
     },
   });
 
@@ -54,10 +65,12 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('docs', app, document);
 
+  const port = Number(process.env.PORT || '3000');
+
   await app.startAllMicroservices();
-  await app.listen(3000);
-  console.log('🚀 Server running on http://localhost:3000');
-  console.log('📚 Swagger docs on http://localhost:3000/docs');
+  await app.listen(port);
+  console.log(`🚀 Server running on http://localhost:${port}`);
+  console.log(`📚 Swagger docs on http://localhost:${port}/docs`);
 }
 bootstrap().catch((err) => {
   // You can improve this to use a proper logger

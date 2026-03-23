@@ -194,6 +194,42 @@ export class TasksService {
     await this.invalidateTasksListCache();
   }
 
+  async getTaskStats(): Promise<{
+    total: number;
+    todo: number;
+    inProgress: number;
+    done: number;
+  }> {
+    const rows = await this.taskRepository
+      .createQueryBuilder('task')
+      .select('task.status', 'status')
+      .addSelect('COUNT(*)', 'count')
+      .groupBy('task.status')
+      .getRawMany<{ status: TaskStatus; count: string }>();
+
+    const counts = rows.reduce(
+      (acc, row) => {
+        const count = Number(row.count || '0');
+
+        if (row.status === TaskStatus.TODO) {
+          acc.todo = count;
+        } else if (row.status === TaskStatus.IN_PROGRESS) {
+          acc.inProgress = count;
+        } else if (row.status === TaskStatus.DONE) {
+          acc.done = count;
+        }
+
+        return acc;
+      },
+      { todo: 0, inProgress: 0, done: 0 },
+    );
+
+    return {
+      total: counts.todo + counts.inProgress + counts.done,
+      ...counts,
+    };
+  }
+
   private getTasksListCacheKey(
     status?: TaskStatus,
     assigneeId?: string,

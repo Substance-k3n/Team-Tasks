@@ -5,6 +5,7 @@ import { User } from '../users/user.entity';
 import { TasksService } from './tasks.service';
 import { TasksController } from './tasks.controller';
 import { TasksMessagesController } from './tasks.messages.controller';
+import { TasksGrpcController } from './tasks.grpc.controller';
 import { RmqClientModule } from '../messaging/rmq.client.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 
@@ -17,7 +18,7 @@ const isJestRuntime =
 		RmqClientModule,
 		...(!isJestRuntime ? [NotificationsModule] : []),
 	],
-	controllers: [TasksController, TasksMessagesController],
+	controllers: [TasksController, TasksMessagesController, TasksGrpcController],
 	providers: [TasksService],
 	exports: [TasksService],
 })

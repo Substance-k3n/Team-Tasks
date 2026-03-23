@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package internal;
+
+service InternalTaskService {
+  rpc GetTaskStats(GetTaskStatsRequest) returns (GetTaskStatsResponse);
+}
+
+message GetTaskStatsRequest {}
+
+message GetTaskStatsResponse {
+  int32 total = 1;
+  int32 todo = 2;
+  int32 in_progress = 3;
+  int32 done = 4;
+}

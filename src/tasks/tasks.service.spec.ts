@@ -37,6 +37,8 @@ describe('TasksService', () => {
   };
 
   beforeEach(() => {
+    notificationsQueueService.enqueueTaskAssigned.mockResolvedValue(undefined);
+
     service = new TasksService(
       rmqClient as any,
       cacheManager as any,
@@ -64,6 +66,30 @@ describe('TasksService', () => {
 
     expect(result).toEqual(cachedTasks);
     expect(taskRepository.createQueryBuilder).not.toHaveBeenCalled();
+  });
+
+  it('returns aggregated task stats grouped by status', async () => {
+    const queryBuilder = {
+      select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      groupBy: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValue([
+        { status: TaskStatus.TODO, count: '2' },
+        { status: TaskStatus.IN_PROGRESS, count: '3' },
+        { status: TaskStatus.DONE, count: '1' },
+      ]),
+    };
+
+    (taskRepository.createQueryBuilder as jest.Mock).mockReturnValue(queryBuilder);
+
+    const stats = await service.getTaskStats();
+
+    expect(stats).toEqual({
+      total: 6,
+      todo: 2,
+      inProgress: 3,
+      done: 1,
+    });
   });
 
   it('enqueues assignment notification when creating an assigned task', async () => {
